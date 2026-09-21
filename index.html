@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>授業タイマー</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: light;
+
+    /* page (light) */
+    --page: #e9eee9;
+    --card: #ffffff;
+    --ink: #15251e;
+    --ink-soft: #566a60;
+    --rule: #cfd9d2;
+    --plain: #e3e9e5;
+    --tab: #ffffff;
+    --tab-ink: #15251e;
+    --tab-on: #17372d;
+    --tab-on-ink: #f6f8f3;
+    --danger: #c62828;
+    --danger-ink: #ffffff;
+    --focus: #1d6fd6;
+    --chart-line: #17372d;
+    --gold: #f0b400;
+
+    /* chalkboard (same in every theme) */
+    --board: #17372d;
+    --board-2: #24503f;
+    --chalk: #f6f8f3;
+    --chalk-dim: #a9c4b7;
+    --yellow: #f7d154;
+    --orange: #ff9f5a;
+    --alarm: #9e2b25;
+
+    --num: "Inter", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    --ui: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", "BIZ UDPGothic", "Yu Gothic", Meiryo, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0b1310;
+      --card: #15231d;
+      --ink: #eaf1ec;
+      --ink-soft: #9db3a6;
+      --rule: #29392f;
+      --plain: #223229;
+      --tab: #15231d;
+      --tab-ink: #eaf1ec;
+      --tab-on: #f7d154;
+      --tab-on-ink: #17372d;
+      --danger: #ff8078;
+      --danger-ink: #2b0a08;
+      --focus: #7db8ff;
+      --chart-line: #7fd1a8;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0b1310;
+    --card: #15231d;
+    --ink: #eaf1ec;
+    --ink-soft: #9db3a6;
+    --rule: #29392f;
+    --plain: #223229;
+    --tab: #15231d;
+    --tab-ink: #eaf1ec;
+    --tab-on: #f7d154;
+    --tab-on-ink: #17372d;
+    --danger: #ff8078;
+    --danger-ink: #2b0a08;
+    --focus: #7db8ff;
+    --chart-line: #7fd1a8;
+  }
+
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--ui);
+    font-variant-numeric: tabular-nums;
+    -webkit-text-size-adjust: 100%;
+  }
+  button { font-family: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+  .app {
+    min-height: 100vh;
+    min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- tabs ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px 10px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 3px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    display: flex;
+    align-items: stretch;
+    flex: 0 0 auto;
+    background: var(--tab);
+    color: var(--tab-ink);
+    border: 2px solid var(--rule);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .tab.active {
+    background: var(--tab-on);
+    color: var(--tab-on-ink);
+    border-color: var(--tab-on);
+  }
+  .tab-name {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: 0;
+    color: inherit;
+    font-size: 1.35rem;
+    font-weight: 700;
+    min-height: 56px;
+    padding: 0 6px 0 20px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  .tab-del {
+    background: none;
+    border: 0;
+    color: inherit;
+    opacity: .6;
+    width: 52px;
+    font-size: 1.7rem;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-del:hover, .tab-del:focus-visible { opacity: 1; }
+  .dot {
+    display: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-left: 10px;
+  }
+  .tab[data-s="run"] .dot { display: inline-block; background: #2fbf6c; }
+  .tab[data-s="done"] .dot { display: inline-block; background: #f0483e; }
+
+  .add-tab {
+    flex: 0 0 auto;
+    min-height: 56px;
+    padding: 0 22px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    background: transparent;
+    border: 2px dashed var(--ink-soft);
+    border-radius: 18px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .empty {
+    margin: 12vh 24px;
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- mode switch ---------- */
+  .stage { padding: 0 14px 16px; flex: 1; }
+  .modebar {
+    display: flex;
+    width: fit-content;
+    margin: 2px auto 14px;
+    background: var(--card);
+    border: 2px solid var(--rule);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .modebar button {
+    background: transparent;
+    border: 0;
+    color: var(--ink);
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-height: 56px;
+    padding: 0 28px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .modebar button.on { background: var(--tab-on); color: var(--tab-on-ink); }
+
+  /* ---------- chalkboard ---------- */
+  .board {
+    background: var(--board);
+    color: var(--chalk);
+    border-radius: 32px;
+    padding: clamp(14px, 3vh, 30px) clamp(14px, 3vw, 36px) clamp(18px, 3.4vh, 34px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 1.8vh, 20px);
+  }
+  .board.alarm { animation: flash .7s steps(1, end) infinite; }
+  @keyframes flash {
+    0%   { background: var(--board); }
+    50%  { background: var(--alarm); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .board.alarm { animation: none; background: var(--alarm); }
+  }
+
+  .display {
+    font-family: var(--num);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    padding: .04em 0 .02em;
+  }
+  .timer-view .display { font-size: min(29vw, 34vh); }
+  .sw-grid .display { font-size: min(27vw, 26vh); }
+
+  .note {
+    min-height: 1.5em;
+    font-size: clamp(1.2rem, 2.8vh, 1.8rem);
+    font-weight: 700;
+    color: var(--yellow);
+    text-align: center;
+  }
+
+  .row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+  .btn {
+    font-size: clamp(1.4rem, 3.2vh, 1.9rem);
+    font-weight: 700;
+    min-height: 72px;
+    min-width: clamp(150px, 20vw, 240px);
+    padding: 0 32px;
+    border-radius: 22px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform .08s;
+  }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.main { background: var(--yellow); color: #17372d; }
+  .btn.main.pause { background: var(--orange); color: #2b1600; }
+  .btn.ghost { background: transparent; color: var(--chalk); border-color: var(--chalk-dim); }
+  .btn.danger-outline { background: transparent; color: var(--danger); border-color: var(--danger); min-width: 0; min-height: 60px; font-size: 1.25rem; align-self: flex-start; }
+  .btn.plain { background: var(--plain); color: var(--ink); min-width: 0; min-height: 60px; font-size: 1.25rem; }
+  .btn.primary { background: var(--tab-on); color: var(--tab-on-ink); min-width: 0; min-height: 60px; font-size: 1.25rem; }
+  .btn.danger { background: var(--danger); color: var(--danger-ink); min-width: 0; min-height: 60px; font-size: 1.25rem; }
+
+  .adjust { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .adjust .row { gap: 10px; }
+  .chip {
+    font-size: clamp(1.05rem, 2.4vh, 1.35rem);
+    font-weight: 700;
+    min-height: 56px;
+    min-width: 84px;
+    padding: 0 18px;
+    border-radius: 16px;
+    border: 2px solid transparent;
+    background: var(--board-2);
+    color: var(--chalk);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chip.on { background: var(--chalk); color: var(--board); }
+  .chip:disabled { opacity: .35; cursor: default; }
+
+  /* ---------- stopwatch layout ---------- */
+  .sw-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) {
+    .sw-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: stretch; }
+    .sw-grid .display { font-size: min(17vw, 34vh); }
+    .sw-grid > .board { justify-content: center; }
+  }
+
+  .card {
+    background: var(--card);
+    color: var(--ink);
+    border: 2px solid var(--rule);
+    border-radius: 28px;
+    padding: clamp(14px, 2.4vh, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .stats { display: flex; gap: 32px; align-items: flex-end; flex-wrap: wrap; }
+  .stat .lbl { display: block; color: var(--ink-soft); font-size: 1rem; font-weight: 700; }
+  .stat .val {
+    font-family: var(--num);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(2rem, 6vh, 3.4rem);
+    line-height: 1.1;
+  }
+  .recent { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-height: 42px; }
+  .recent .lbl { color: var(--ink-soft); font-size: 1rem; font-weight: 700; margin-right: 4px; }
+  .rec {
+    font-family: var(--num);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 6px 12px;
+    border-radius: 12px;
+    background: var(--plain);
+  }
+  .rec.is-best { background: var(--yellow); color: #17372d; }
+  .chart-box { position: relative; height: clamp(190px, 30vh, 300px); }
+  .chart-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-size: 1.2rem;
+  }
+
+  /* ---------- dialog ---------- */
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(8, 16, 12, .62);
+  }
+  .dialog {
+    width: min(560px, 100%);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 26px;
+    padding: 26px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+  }
+  .dialog h2 { margin: 0 0 14px; font-size: 1.6rem; }
+  .dialog p { margin: 0; font-size: 1.25rem; line-height: 1.6; }
+  .dlg-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+  .field { display: block; }
+  .field > span { display: block; font-weight: 700; margin-bottom: 8px; }
+  .field input {
+    width: 100%;
+    font: inherit;
+    font-size: 1.5rem;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 2px solid var(--rule);
+    background: var(--page);
+    color: var(--ink);
+  }
+  .rule-set { border: 0; padding: 0; margin: 18px 0 0; }
+  .rule-set legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+  .opt input { width: 26px; height: 26px; accent-color: var(--tab-on); }
+  .dialog .hint { color: var(--ink-soft); font-size: 1rem; margin-top: 14px; }
+  .dialog .err { color: var(--danger); min-height: 1.5em; margin-top: 8px; font-size: 1.05rem; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="tabs" id="tabs" role="tablist" aria-label="カテゴリ"></div>
+    <button type="button" class="add-tab" id="addTab">＋ 追加</button>
+  </header>
+
+  <p class="empty" id="emptyState" hidden>タブがありません。右上の「＋ 追加」から作成してください。</p>
+
+  <main class="stage" id="content" hidden>
+    <div class="modebar" id="modeBar" role="tablist" aria-label="モード">
+      <button type="button" role="tab" data-mode="timer">タイマー</button>
+      <button type="button" role="tab" data-mode="sw">ストップウォッチ</button>
+    </div>
+
+    <!-- Timer -->
+    <section class="board timer-view" id="timerView" aria-label="タイマー">
+      <div class="display" id="tDisp" role="timer" aria-live="off">5:00</div>
+      <div class="note" id="tNote"></div>
+      <div class="row">
+        <button type="button" class="btn main" id="tStart">スタート</button>
+        <button type="button" class="btn ghost" id="tReset">リセット</button>
+      </div>
+      <div class="adjust" id="tAdjust">
+        <div class="row">
+          <button type="button" class="chip" data-set="60">1分</button>
+          <button type="button" class="chip" data-set="180">3分</button>
+          <button type="button" class="chip" data-set="300">5分</button>
+          <button type="button" class="chip" data-set="600">10分</button>
+          <button type="button" class="chip" data-set="900">15分</button>
+        </div>
+        <div class="row">
+          <button type="button" class="chip" data-add="-60">−1分</button>
+          <button type="button" class="chip" data-add="-10">−10秒</button>
+          <button type="button" class="chip" data-add="10">＋10秒</button>
+          <button type="button" class="chip" data-add="60">＋1分</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stopwatch -->
+    <section class="sw-grid" id="swView" aria-label="ストップウォッチ">
+      <div class="board">
+        <div class="display" id="sDisp" role="timer" aria-live="off">0:00</div>
+        <div class="note" id="sNote"></div>
+        <div class="row">
+          <button type="button" class="btn main" id="sStart">スタート</button>
+          <button type="button" class="btn ghost" id="sReset">リセット</button>
+        </div>
+      </div>
+      <aside class="card" aria-label="記録">
+        <div class="stats">
+          <div class="stat">
+            <span class="lbl">ベスト <span id="bestRule"></span></span>
+            <span class="val" id="bestVal">--:--</span>
+          </div>
+          <div class="stat">
+            <span class="lbl">記録の数</span>
+            <span class="val" id="countVal">0</span>
+          </div>
+        </div>
+        <div class="recent" id="recent"></div>
+        <div class="chart-box">
+          <canvas id="chart" aria-label="記録の推移グラフ" role="img"></canvas>
+          <p class="chart-empty" id="chartEmpty">まだ記録がありません</p>
+        </div>
+        <button type="button" class="btn danger-outline" id="resetRecords">記録をリセット</button>
+      </aside>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h2 id="mTitle"></h2>
+    <div id="mBody"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn plain" id="mCancel">やめる</button>
+      <button type="button" class="btn primary" id="mOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= helpers ================= */
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+  const MAX_SEC = 5999;                       // 99:59
+  const fmt = (sec) => {
+    sec = Math.max(0, Math.floor(sec));
+    return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  };
+  const setText = (el, s) => { if (el.textContent !== s) el.textContent = s; };
+
+  /* ================= storage (localStorage, with in-memory fallback) ================= */
+  const mem = {};
+  const store = {
+    get(k) {
+      try { const v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {}
+      return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null;
+    },
+    set(k, v) { try { localStorage.setItem(k, v); delete mem[k]; } catch (e) { mem[k] = v; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} delete mem[k]; }
+  };
+  const META_KEY = 'classTimer:meta:v1';
+  const REC_PREFIX = 'classTimer:records:';
+
+  /* ================= state ================= */
+  let meta = loadMeta();          // { cats:[{id,name,best,timerSec,mode}], active }
+  const records = {};             // id -> [{t, d}]
+  const rt = {};                  // id -> runtime (not persisted)
+  let chart = null;
+  let libState = { chart: 'loading' };
+
+  function newId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function newCat(name, best = 'min') { return { id: newId(), name, best, timerSec: 300, mode: 'timer' }; }
+
+  function loadMeta() {
+    try {
+      const raw = store.get(META_KEY);
+      if (raw) {
+        const m = JSON.parse(raw);
+        if (m && Array.isArray(m.cats)) {
+          m.cats = m.cats
+            .filter(c => c && typeof c.id === 'string' && typeof c.name === 'string')
+            .map(c => ({
+              id: c.id,
+              name: c.name.slice(0, 12),
+              best: c.best === 'max' ? 'max' : 'min',
+              timerSec: Number.isFinite(c.timerSec) ? clamp(Math.round(c.timerSec), 0, MAX_SEC) : 300,
+              mode: c.mode === 'sw' ? 'sw' : 'timer'
+            }));
+          if (!m.cats.some(c => c.id === m.active)) m.active = m.cats[0] ? m.cats[0].id : null;
+          return m;
+        }
+      }
+    } catch (e) {}
+    const c = newCat('授業');
+    return { cats: [c], active: c.id };
+  }
+  function saveMeta() { store.set(META_KEY, JSON.stringify(meta)); }
+
+  function getRt(id) {
+    return rt[id] || (rt[id] = {
+      timer: { state: 'idle', endAt: 0, remainMs: 0, ringing: false, ringUntil: 0 },
+      sw: { state: 'idle', startAt: 0, elapsedSec: 0, note: '' }
+    });
+  }
+  function getRecords(id) {
+    if (!records[id]) {
+      let a = [];
+      try {
+        const raw = store.get(REC_PREFIX + id);
+        if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) a = p.filter(x => x && Number.isFinite(x.t)); }
+      } catch (e) {}
+      records[id] = a;
+    }
+    return records[id];
+  }
+  function saveRecords(id) {
+    const a = records[id] || [];
+    if (a.length) store.set(REC_PREFIX + id, JSON.stringify(a));
+    else store.del(REC_PREFIX + id);
+  }
+  const activeCat = () => meta.cats.find(c => c.id === meta.active) || null;
+  function bestOf(cat, arr) {
+    if (!arr.length) return null;
+    const v = arr.map(x => x.t);
+    return cat.best === 'max' ? Math.max(...v) : Math.min(...v);
+  }
+
+  /* ================= elements ================= */
+  const els = {
+    tabs: $('#tabs'), addTab: $('#addTab'), content: $('#content'), empty: $('#emptyState'),
+    modeBar: $('#modeBar'), timerView: $('#timerView'), swView: $('#swView'),
+    tDisp: $('#tDisp'), tNote: $('#tNote'), tStart: $('#tStart'), tReset: $('#tReset'), tAdjust: $('#tAdjust'),
+    sDisp: $('#sDisp'), sNote: $('#sNote'), sStart: $('#sStart'), sReset: $('#sReset'),
+    bestVal: $('#bestVal'), bestRule: $('#bestRule'), countVal: $('#countVal'), recent: $('#recent'),
+    chart: $('#chart'), chartEmpty: $('#chartEmpty'), resetRecords: $('#resetRecords')
+  };
+
+  /* ================= audio (alarm) ================= */
+  let actx = null;
+  let alarmNodes = [];
+  function ensureAudio() {
+    try {
+      if (!actx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); }
+      if (actx && actx.state === 'suspended') actx.resume();
+    } catch (e) {}
+  }
+  function playAlarm() {
+    ensureAudio();
+    if (!actx) return;
+    stopAlarmSound();
+    try {
+      const t0 = actx.currentTime + 0.05;
+      for (let rep = 0; rep < 4; rep++) {
+        for (let i = 0; i < 4; i++) {
+          const s = t0 + rep * 1.6 + i * 0.28;
+          const osc = actx.createOscillator();
+          const g = actx.createGain();
+          osc.type = 'square';
+          osc.frequency.value = 988;
+          g.gain.setValueAtTime(0.0001, s);
+          g.gain.exponentialRampToValueAtTime(0.22, s + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, s + 0.2);
+          osc.connect(g); g.connect(actx.destination);
+          osc.start(s); osc.stop(s + 0.22);
+          alarmNodes.push(osc);
+        }
+      }
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]); } catch (e) {}
+  }
+  function stopAlarmSound() {
+    alarmNodes.forEach(o => { try { o.stop(); } catch (e) {} });
+    alarmNodes = [];
+  }
+  function anyRinging() { return meta.cats.some(c => rt[c.id] && rt[c.id].timer.ringing); }
+  function stopAlarm() {
+    stopAlarmSound();
+    meta.cats.forEach(c => { if (rt[c.id]) rt[c.id].timer.ringing = false; });
+    try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+  }
+
+  /* ================= screen wake lock (keeps the tablet awake while running) ================= */
+  let wake = null, wakeBusy = false, wakeOff = !('wakeLock' in navigator);
+  async function updateWake(need) {
+    if (wakeOff || wakeBusy) return;
+    try {
+      if (need && !wake) {
+        wakeBusy = true;
+        wake = await navigator.wakeLock.request('screen');
+        wake.addEventListener('release', () => { wake = null; });
+      } else if (!need && wake) {
+        wakeBusy = true;
+        const w = wake; wake = null; await w.release();
+      }
+    } catch (e) { wakeOff = true; }
+    finally { wakeBusy = false; }
+  }
+
+  /* ================= confetti ================= */
+  function fireConfetti() {
+    if (typeof confetti !== 'function') return;
+    try {
+      confetti({ particleCount: 140, spread: 100, startVelocity: 45, origin: { y: 0.6 } });
+      const end = Date.now() + 1400;
+      (function frame() {
+        confetti({ particleCount: 6, angle: 60, spread: 60, origin: { x: 0, y: 0.75 } });
+        confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1, y: 0.75 } });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+    } catch (e) {}
+  }
+
+  /* ================= timer logic ================= */
+  function timerShown(cat, t) {
+    if (t.state === 'idle') return cat.timerSec;
+    if (t.state === 'running') return Math.max(0, Math.ceil((t.endAt - Date.now()) / 1000));
+    if (t.state === 'paused') return Math.ceil(t.remainMs / 1000);
+    return 0; // done
+  }
+  function startTimer(cat) {
+    const t = getRt(cat.id).timer;
+    ensureAudio();
+    stopAlarm();
+    if (t.state === 'running') return;
+    if (t.state !== 'paused') {
+      if (cat.timerSec <= 0) return;
+      t.remainMs = cat.timerSec * 1000;
+    }
+    t.endAt = Date.now() + t.remainMs;
+    t.state = 'running';
+  }
+  function pauseTimer(cat) {
+    const t = getRt(cat.id).timer;
+    if (t.state !== 'running') return;
+    t.remainMs = Math.max(0, t.endAt - Date.now());
+    t.state = 'paused';
+  }
+  function resetTimer(cat) {
+    const t = getRt(cat.id).timer;
+    t.state = 'idle'; t.remainMs = 0; t.ringing = false;
+    stopAlarm();
+  }
+  function adjustTimer(cat, fn) {
+    const t = getRt(cat.id).timer;
+    if (t.state === 'running' || t.state === 'paused') return;
+    if (t.state === 'done') { t.state = 'idle'; stopAlarm(); }
+    cat.timerSec = clamp(Math.round(fn(cat.timerSec)), 0, MAX_SEC);
+    saveMeta();
+  }
+
+  /* ================= stopwatch logic ================= */
+  function startSw(cat) {
+    const w = getRt(cat.id).sw;
+    ensureAudio();
+    w.state = 'running'; w.startAt = Date.now(); w.elapsedSec = 0; w.note = '';
+  }
+  function stopSw(cat, forcedSec) {
+    const w = getRt(cat.id).sw;
+    if (w.state !== 'running') return;
+    let sec = typeof forcedSec === 'number' ? forcedSec : Math.floor((Date.now() - w.startAt) / 1000);
+    sec = clamp(sec, 0, MAX_SEC);
+    w.state = 'stopped'; w.elapsedSec = sec;
+    if (sec < 1) { w.note = '1秒未満は記録されません'; return; }
+
+    const arr = getRecords(cat.id);
+    const prev = bestOf(cat, arr);
+    arr.push({ t: sec, d: Date.now() });
+    if (arr.length > 500) arr.splice(0, arr.length - 500);
+    saveRecords(cat.id);
+
+    const better = prev !== null && (cat.best === 'min' ? sec < prev : sec > prev);
+    w.note = better ? '🎉 自己ベスト更新！' : fmt(sec) + ' を記録しました';
+    if (better) fireConfetti();
+    if (cat.id === meta.active && cat.mode === 'sw') { renderStats(); renderChart(); }
+  }
+  function resetSw(cat) {
+    const w = getRt(cat.id).sw;
+    w.state = 'idle'; w.elapsedSec = 0; w.note = '';
+  }
+
+  /* ================= the tick (setInterval) ================= */
+  function tick() {
+    const now = Date.now();
+    let running = false, ringing = false;
+    for (const cat of meta.cats) {
+      const r = rt[cat.id];
+      if (!r) continue;
+      const t = r.timer, w = r.sw;
+      if (t.state === 'running') {
+        running = true;
+        if (t.endAt - now <= 0) {          // 0秒 → 停止してアラーム
+          t.state = 'done'; t.remainMs = 0;
+          t.ringing = true; t.ringUntil = now + 7500;
+          playAlarm();
+        }
+      }
+      if (t.ringing) { if (now > t.ringUntil) t.ringing = false; else ringing = true; }
+      if (w.state === 'running') {
+        running = true;
+        if (Math.floor((now - w.startAt) / 1000) >= MAX_SEC) stopSw(cat, MAX_SEC);
+      }
+    }
+    if (!ringing && alarmNodes.length) stopAlarmSound();
+    updateWake(running);
+    paint();
+  }
+
+  /* ================= painting ================= */
+  function paint() {
+    const cat = activeCat();
+    if (!cat) return;
+    const r = getRt(cat.id);
+    if (cat.mode === 'timer') paintTimer(cat, r.timer); else paintSw(cat, r.sw);
+    updateBadges();
+  }
+  function paintTimer(cat, t) {
+    els.tDisp.textContent = fmt(timerShown(cat, t));          // 毎回確実に書き換え
+    els.timerView.classList.toggle('alarm', !!t.ringing);
+    const label = { idle: 'スタート', running: '一時停止', paused: '再開', done: 'もう一度' }[t.state];
+    setText(els.tStart, label);
+    els.tStart.classList.toggle('pause', t.state === 'running');
+    els.tStart.disabled = t.state === 'idle' && cat.timerSec <= 0;
+    els.tReset.disabled = t.state === 'idle';
+    setText(els.tNote, t.state === 'done' ? '時間です！' : t.state === 'paused' ? '一時停止中' : '');
+    const locked = t.state === 'running' || t.state === 'paused';
+    $$('button', els.tAdjust).forEach(b => {
+      if (b.disabled !== locked) b.disabled = locked;
+      if (b.dataset.set) b.classList.toggle('on', Number(b.dataset.set) === cat.timerSec);
+    });
+  }
+  function paintSw(cat, w) {
+    let sec = 0;
+    if (w.state === 'running') sec = Math.min(MAX_SEC, Math.floor((Date.now() - w.startAt) / 1000));
+    else if (w.state === 'stopped') sec = w.elapsedSec;
+    els.sDisp.textContent = fmt(sec);                          // 毎回確実に書き換え
+    setText(els.sStart, w.state === 'running' ? 'ストップ' : w.state === 'stopped' ? 'もう一度' : 'スタート');
+    els.sStart.classList.toggle('pause', w.state === 'running');
+    els.sReset.disabled = w.state === 'idle';
+    setText(els.sNote, w.note || '');
+  }
+  function updateBadges() {
+    $$('.tab', els.tabs).forEach(tab => {
+      const r = rt[tab.dataset.id];
+      let s = '';
+      if (r) {
+        if (r.timer.state === 'done') s = 'done';
+        else if (r.timer.state === 'running' || r.sw.state === 'running') s = 'run';
+      }
+      if ((tab.dataset.s || '') !== s) tab.dataset.s = s;
+    });
+  }
+
+  function renderTabs() {
+    els.tabs.textContent = '';
+    meta.cats.forEach(cat => {
+      const tab = document.createElement('div');
+      tab.className = 'tab' + (cat.id === meta.active ? ' active' : '');
+      tab.dataset.id = cat.id;
+
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'tab-name';
+      name.setAttribute('role', 'tab');
+      name.setAttribute('aria-selected', String(cat.id === meta.active));
+      const label = document.createElement('span');
+      label.textContent = cat.name;
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      name.append(label, dot);
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'tab-del';
+      del.textContent = '×';
+      del.setAttribute('aria-label', '「' + cat.name + '」を削除');
+
+      tab.append(name, del);
+      els.tabs.append(tab);
+    });
+    updateBadges();
+    const a = $('.tab.active', els.tabs);
+    if (a && a.scrollIntoView) { try { a.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) {} }
+  }
+
+  function renderStats() {
+    const cat = activeCat();
+    if (!cat) return;
+    const arr = getRecords(cat.id);
+    const best = bestOf(cat, arr);
+    setText(els.bestVal, best === null ? '--:--' : fmt(best));
+    setText(els.bestRule, cat.best === 'min' ? '（短いほど良い）' : '（長いほど良い）');
+    setText(els.countVal, arr.length + '回');
+    els.recent.textContent = '';
+    if (arr.length) {
+      const lbl = document.createElement('span');
+      lbl.className = 'lbl';
+      lbl.textContent = '最近';
+      els.recent.append(lbl);
+      arr.slice(-6).reverse().forEach(x => {
+        const s = document.createElement('span');
+        s.className = 'rec' + (x.t === best ? ' is-best' : '');
+        s.textContent = fmt(x.t);
+        els.recent.append(s);
+      });
+    }
+  }
+
+  function renderChart() {
+    if (chart) { chart.destroy(); chart = null; }
+    const cat = activeCat();
+    if (!cat || cat.mode !== 'sw') return;
+    const arr = getRecords(cat.id);
+    const has = arr.length > 0;
+    els.chart.hidden = !has;
+    els.chartEmpty.hidden = has;
+    if (!has) { els.chartEmpty.textContent = 'まだ記録がありません'; return; }
+    if (typeof Chart === 'undefined') {
+      els.chart.hidden = true; els.chartEmpty.hidden = false;
+      els.chartEmpty.textContent = libState.chart === 'failed' ? 'グラフを読み込めませんでした' : 'グラフを読み込み中…';
+      return;
+    }
+    const cs = getComputedStyle(document.documentElement);
+    const v = n => cs.getPropertyValue(n).trim();
+    const shown = arr.slice(-15);
+    const offset = arr.length - shown.length;
+    const vals = shown.map(x => x.t);
+    const best = bestOf(cat, arr);
+    const isBest = y => y === best;
+    try {
+      chart = new Chart(els.chart.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: shown.map((_, i) => String(offset + i + 1)),
+          datasets: [{
+            data: vals,
+            borderColor: v('--chart-line'),
+            backgroundColor: v('--chart-line'),
+            borderWidth: 4,
+            tension: 0.25,
+            pointRadius: vals.map(y => isBest(y) ? 9 : 5),
+            pointHoverRadius: 10,
+            pointBorderWidth: 3,
+            pointBackgroundColor: vals.map(y => isBest(y) ? v('--gold') : v('--chart-line')),
+            pointBorderColor: v('--chart-line')
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title: items => items[0].label + '回目',
+                label: c => fmt(Math.round(c.parsed.y))
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: '回数', color: v('--ink-soft') }, ticks: { color: v('--ink-soft') }, grid: { color: v('--rule') } },
+            y: { grace: '10%', ticks: { color: v('--ink-soft'), precision: 0, callback: val => fmt(Math.round(val)) }, grid: { color: v('--rule') } }
+          }
+        }
+      });
+    } catch (e) {
+      els.chart.hidden = true; els.chartEmpty.hidden = false;
+      els.chartEmpty.textContent = 'グラフを表示できませんでした';
+    }
+  }
+
+  function render() {
+    renderTabs();
+    const cat = activeCat();
+    els.empty.hidden = !!cat;
+    els.content.hidden = !cat;
+    if (!cat) { if (chart) { chart.destroy(); chart = null; } return; }
+    $$('button', els.modeBar).forEach(b => {
+      const on = b.dataset.mode === cat.mode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+    els.timerView.hidden = cat.mode !== 'timer';
+    els.swView.hidden = cat.mode !== 'sw';
+    paint();
+    if (cat.mode === 'sw') { renderStats(); renderChart(); }
+    else if (chart) { chart.destroy(); chart = null; }
+  }
+
+  /* ================= dialogs (window.confirm / prompt は使わない) ================= */
+  function openDialog(opts) {
+    return new Promise(resolve => {
+      const m = $('#modal'), ok = $('#mOk'), cancel = $('#mCancel');
+      $('#mTitle').textContent = opts.title;
+      const b = $('#mBody');
+      b.textContent = '';
+      b.appendChild(opts.body);
+      ok.textContent = opts.okLabel || 'OK';
+      ok.className = 'btn ' + (opts.danger ? 'danger' : 'primary');
+      const prev = document.activeElement;
+      m.hidden = false;
+
+      function close(val) {
+        m.hidden = true;
+        ok.onclick = cancel.onclick = m.onpointerdown = m.onkeydown = null;
+        if (prev && prev.focus) { try { prev.focus(); } catch (e) {} }
+        resolve(val);
+      }
+      ok.onclick = () => {
+        const val = opts.collect ? opts.collect() : true;
+        if (val === null) return;
+        close(val);
+      };
+      cancel.onclick = () => close(null);
+      m.onpointerdown = e => { if (e.target === m) close(null); };
+      m.onkeydown = e => {
+        if (e.key === 'Escape') close(null);
+        else if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); ok.click(); }
+      };
+      (opts.focus || (() => cancel.focus()))();
+    });
+  }
+
+  async function addTabFlow() {
+    const body = document.createElement('div');
+    body.innerHTML =
+      '<label class="field"><span>タブの名前</span>' +
+      '<input id="nameInput" type="text" maxlength="12" placeholder="例：50m走、計算カード" autocomplete="off"></label>' +
+      '<fieldset class="rule-set"><legend>ベスト記録の基準（ストップウォッチ）</legend>' +
+      '<label class="opt"><input type="radio" name="best" value="min" checked><span>短いほど良い（走る・解くなど）</span></label>' +
+      '<label class="opt"><input type="radio" name="best" value="max"><span>長いほど良い（息を止める・粘るなど）</span></label></fieldset>' +
+      '<p class="hint">名前と基準は、決定するとあとから変更できません。</p>' +
+      '<p class="err" id="nameErr" aria-live="polite"></p>';
+    const input = $('#nameInput', body), err = $('#nameErr', body);
+    const res = await openDialog({
+      title: 'タブを追加', body, okLabel: '追加する',
+      focus: () => input.focus(),
+      collect() {
+        const name = input.value.trim().replace(/\s+/g, ' ');
+        if (!name) { err.textContent = '名前を入力してください'; input.focus(); return null; }
+        if (meta.cats.some(c => c.name === name)) { err.textContent = '同じ名前のタブがあります'; input.focus(); return null; }
+        return { name, best: $('input[name="best"]:checked', body).value };
+      }
+    });
+    if (!res) return;
+    const cat = newCat(res.name, res.best);
+    meta.cats.push(cat);
+    meta.active = cat.id;
+    saveMeta();
+    render();
+  }
+
+  async function confirmDeleteTab(id) {
+    const idx = meta.cats.findIndex(c => c.id === id);
+    if (idx < 0) return;
+    const cat = meta.cats[idx];
+    const body = document.createElement('p');
+    body.textContent = '「' + cat.name + '」を削除しますか？ このタブの記録もすべて消えます。';
+    const ok = await openDialog({ title: 'タブを削除', body, okLabel: '削除する', danger: true });
+    if (!ok) return;
+    if (rt[id] && rt[id].timer.ringing) stopAlarm();
+    meta.cats.splice(idx, 1);
+    delete rt[id];
+    delete records[id];
+    store.del(REC_PREFIX + id);
+    if (meta.active === id) {
+      const next = meta.cats[Math.min(idx, meta.cats.length - 1)];
+      meta.active = next ? next.id : null;
+    }
+    saveMeta();
+    render();
+  }
+
+  async function confirmResetRecords() {
+    const cat = activeCat();
+    if (!cat) return;
+    const body = document.createElement('p');
+    body.textContent = '「' + cat.name + '」の記録とグラフをすべて空にします。元に戻せません。';
+    const ok = await openDialog({ title: '記録をリセット', body, okLabel: 'リセットする', danger: true });
+    if (!ok) return;
+    records[cat.id] = [];
+    store.del(REC_PREFIX + cat.id);          // localStorage から完全に削除
+    getRt(cat.id).sw.note = '';
+    if (chart) { chart.destroy(); chart = null; }
+    renderStats();
+    renderChart();
+    paint();
+  }
+
+  /* ================= events ================= */
+  els.tabs.addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    if (e.target.closest('.tab-del')) { confirmDeleteTab(tab.dataset.id); return; }
+    if (tab.dataset.id !== meta.active) { meta.active = tab.dataset.id; saveMeta(); render(); }
+  });
+  els.addTab.addEventListener('click', addTabFlow);
+
+  els.modeBar.addEventListener('click', e => {
+    const b = e.target.closest('button[data-mode]');
+    const cat = activeCat();
+    if (!b || !cat || cat.mode === b.dataset.mode) return;
+    cat.mode = b.dataset.mode;
+    saveMeta();
+    render();
+  });
+
+  els.tStart.addEventListener('click', () => {
+    const cat = activeCat(); if (!cat) return;
+    const t = getRt(cat.id).timer;
+    if (t.state === 'running') pauseTimer(cat); else startTimer(cat);
+    paint();
+  });
+  els.tReset.addEventListener('click', () => {
+    const cat = activeCat(); if (!cat) return;
+    resetTimer(cat);
+    paint();
+  });
+  els.tAdjust.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    const cat = activeCat();
+    if (!b || !cat || b.disabled) return;
+    if (b.dataset.set) adjustTimer(cat, () => Number(b.dataset.set));
+    else if (b.dataset.add) adjustTimer(cat, s => s + Number(b.dataset.add));
+    paint();
+  });
+
+  els.sStart.addEventListener('click', () => {
+    const cat = activeCat(); if (!cat) return;
+    const w = getRt(cat.id).sw;
+    if (w.state === 'running') stopSw(cat); else startSw(cat);
+    paint();
+  });
+  els.sReset.addEventListener('click', () => {
+    const cat = activeCat(); if (!cat) return;
+    resetSw(cat);
+    paint();
+  });
+  els.resetRecords.addEventListener('click', confirmResetRecords);
+
+  // どこをタップしてもアラームを止める / 音声を有効化
+  document.addEventListener('pointerdown', () => {
+    ensureAudio();
+    if (anyRinging()) { stopAlarm(); paint(); }
+  }, true);
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+
+  // テーマ切替時にグラフの色を更新
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onTheme = () => { const c = activeCat(); if (c && c.mode === 'sw') renderChart(); };
+    if (mq.addEventListener) mq.addEventListener('change', onTheme); else if (mq.addListener) mq.addListener(onTheme);
+    new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  } catch (e) {}
+
+  /* ================= CDN libraries (Chart.js / canvas-confetti) ================= */
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  async function ensureLib(check, urls) {
+    if (check()) return true;
+    for (const u of urls) {
+      try { await loadScript(u); if (check()) return true; } catch (e) {}
+    }
+    return false;
+  }
+  ensureLib(() => typeof Chart !== 'undefined', [
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+  ]).then(ok => {
+    libState.chart = ok ? 'ok' : 'failed';
+    if (ok) { try { Chart.defaults.font.size = 15; Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; } catch (e) {} }
+    renderChart();
+  });
+  ensureLib(() => typeof confetti === 'function', [
+    'https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.2/confetti.browser.min.js',
+    'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js'
+  ]);
+
+  /* ================= start ================= */
+  render();
+  // システム時刻との差から残り秒を求めるので、間隔が多少ズレても表示は遅れません。
+  setInterval(tick, 200);
+})();
+</script>
+</body>
+</html>
